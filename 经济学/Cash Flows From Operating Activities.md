@@ -24,5 +24,31 @@ Change in Working Capital **為兩個財報期間的營運資本差值**
 
 
 
+### What Is Cash Flow From Operating Activities ###
+
+Cash flow from operating activities does not include long-term capital expenditures(/ ɪkˈspendɪtʃər / )（资本支出） or investment revenue and expense. CFO focuses only on the core business, and is also known as operating cash flow (OCF) or net cash from operating activities.
+
+经营活动产生的现金流量不包括长期资本支出或投资收支。 CFO 只关注核心业务，也称为经营现金流 (OCF) 或经营活动产生的净现金。
+
+[Cash flow](https://www.investopedia.com/terms/c/cashflow.asp) forms one of the most important parts of business operations and accounts for the total amount of money being transferred into and out of a business. Since it affects the company's [liquidity](https://www.investopedia.com/terms/l/liquidity.asp), it has significance(/ sɪɡˈnɪfɪkəns / 重要性) for multiple reasons. It allows business owners and operators check where the money is coming from and going to, it helps them take steps to generate and maintain(/ meɪnˈteɪn / 保持，维持) sufficient(/ səˈfɪʃ(ə)nt / 足够的，充足的) cash necessary for operational efficiency and other necessary needs, and it helps in making key and efficient financing decisions.
+
+现金流是企业运营最重要的部分之一，占企业转入和转出的资金总额。由于它会影响公司的流动性，因此其重要性有多种。它允许企业主和经营者检查资金的来源和去向，帮助他们采取措施产生和维持运营效率和其他必要需求所需的足够现金，并有助于做出关键且高效的融资决策。
+
+Investors examine a company’s cash flow from operating activities, within the cash flow statement, to determine where a company is getting its money from. In contrast to investing and financing activities which may be one-time or sporadic revenue, the operating activities are core to the business and are recurring in nature.
+
+投资者在现金流量表中检查公司经营活动产生的现金流量，以确定公司的资金来源。与可能是一次性或零星收入的投资和融资活动相比，经营活动是业务的核心，并且本质上是经常性的。
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

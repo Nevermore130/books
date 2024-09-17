@@ -46,7 +46,11 @@ Also called other sundry（/ ˈsʌndri / 杂项） income, gains(收益) indicat
 
 ### Primary-Activity Expenses
 
+/ ˈpraɪmeri /
+
 These are all expenses incurred(/ ɪnˈkɜːrd / 招致；遭受) for earning the average operating revenue linked to the primary activity of the business. They include the [cost of goods sold](https://www.investopedia.com/terms/c/cogs.asp) (COGS); [selling, general, and administrative](https://www.investopedia.com/terms/s/sga.asp) (SG&A) expenses; [depreciation](https://www.investopedia.com/terms/d/depreciation.asp) or [amortization](https://www.investopedia.com/terms/a/amortization.asp); and [research and development ](https://www.investopedia.com/terms/r/randd.asp)(R&D) expenses. Typical items that make up the list are:
+
+所有这些发生的费用,是为了赚取平均收入(和主要活动相关的平均收入)
 
 ## Income Statement Structure
 
