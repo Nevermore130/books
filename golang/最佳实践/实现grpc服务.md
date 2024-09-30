@@ -219,6 +219,91 @@ grpc:
 
 最后，我们需要实现 `MiniBlog` 服务所定义的 API 接口：`pc ListUser(ListUserRequest) returns (ListUserResponse) {}`。实现方式跟之前实现 REST API 的流程和思路类似，按 Store 层 -> Biz 层 -> Controller 层的顺序依次实现。
 
+```go
+ pb.RegisterMiniBlogServer(grpcsrv, user.New(store.S, nil))
+ //这里的user就是UserController
+//UserController必须是实现了grpc定义的server
+
+//miniblog_grpc.pb.go 里定义处理grpc的server
+type MiniBlogServer interface {
+	ListUser(context.Context, *ListUserRequest) (*ListUserResponse, error)
+	mustEmbedUnimplementedMiniBlogServer()
+}
+
+
+//所以UserController 必须实现 MiniBlogServer中的ListUser方法
+
+//创建user对象 需要传入数据源store
+func New(ds store.IStore) *UserController {
+	return &UserController{b: biz.NewBiz(ds)}
+}
+
+//创建biz对象，biz同样需要一个store(controller透传的)
+func NewBiz(ds store.IStore) *biz {
+	return &biz{ds: ds}
+}
+
+//通过biz可以获取对应业务的具体biz,比如userBiz
+func (b *biz) Users() user.UserBiz {
+	return user.New(b.ds)
+}
+
+//UserBiz实现了一些和User业务相关的逻辑，比如listUser
+type UserBiz interface {
+	Create(ctx context.Context, r *v1.CreateUserRequest) error
+	Login(ctx context.Context, r *v1.LoginRequest) (*v1.LoginResponse, error)
+	List(ctx context.Context, offset, limit int) (*v1.ListUserResponse, error)
+}
+
+
+//回到UserController 实现MiniBlogServer
+func (ctrl *UserController) ListUser(ctx context.Context, r *pb.ListUserRequest) (*pb.ListUserResponse, error) {
+	log.C(ctx).Infow("ListUser function called")
+
+  //controller中的biz对象，获取UserBiz对象，然后取得List
+	resp, err := ctrl.b.Users().List(ctx, int(r.Offset), int(r.Limit))
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]*pb.UserInfo, 0, len(resp.Users))
+
+	for _, u := range resp.Users {
+		createdAt, _ := time.Parse("2006-01-02 15:04:05", u.CreatedAt)
+		updatedAt, _ := time.Parse("2006-01-02 15:04:05", u.UpdatedAt)
+		users = append(users, &pb.UserInfo{
+			Username:  u.Username,
+			Nickname:  u.Nickname,
+			Email:     u.Email,
+			Phone:     u.Phone,
+			PostCount: u.PostCount,
+			CreatedAt: timestamppb.New(createdAt),
+			UpdatedAt: timestamppb.New(updatedAt),
+		})
+	}
+
+	ret := &pb.ListUserResponse{
+		TotalCount: resp.TotalCount,
+		Users:      users,
+	}
+
+	return ret, nil
+
+}
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
 ### 实现客户端
 
 有了 gRPC 服务端之后，我们就可以开发一个客户端，连接 gRPC 服务器，并调用其提供的 API 接口。客户端实现也很简单，我们新建一个`examples/client/main.go` 文件，内容如下：

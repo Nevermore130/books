@@ -65,7 +65,7 @@ func main() {
 }
 ```
 
-在消费者函数 consume 中，我们使用了 for range 循环语句来从 channel 中接收数据，for range 会阻塞在对 channel 的接收操作上，直到 channel 中有数据可接收或 channel 被关闭，才会继续向下执行。channel 被关闭后，for range 循环也就结束了。
+在消费者函数 consume 中，我们使用了 for range 循环语句来从 channel 中接收数据，**for range 会阻塞在对 channel 的接收操作上**，直到 channel 中有数据可接收或 channel 被关闭，才会继续向下执行。channel 被关闭后，for range 循环也就结束了。
 
 ### 关闭channel ###
 

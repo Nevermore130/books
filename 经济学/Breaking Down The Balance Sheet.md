@@ -2,7 +2,7 @@ A company's [financial statements](https://www.investopedia.com/terms/f/financia
 
 ### The Structure of a Balance Sheet  ###
 
-A company's balance sheet is comprised of [assets](https://www.investopedia.com/terms/a/asset.asp), [liabilities](https://www.investopedia.com/terms/l/liability.asp), and [equity](https://www.investopedia.com/terms/e/equity.asp). Assets represent things of value that a company owns and has in its possession(/ pəˈzeʃn /  拥有，持有；个人财产), or something that will be received and can be measured objectively(客观地)
+A company's balance sheet is comprised（/ kəmˈpraɪzd / 由..组成） of [assets](https://www.investopedia.com/terms/a/asset.asp), [liabilities](https://www.investopedia.com/terms/l/liability.asp), and [equity](https://www.investopedia.com/terms/e/equity.asp). Assets represent things of value that a company owns and has in its possession(/ pəˈzeʃn /  拥有，持有；个人财产), or something that will be received and can be measured objectively(客观地)
 
 Liabilities are what a company owes to others—creditors（债权人，贷方） suppliers（/ səˈplaɪərz / 供应商）, tax authorities（/ əˈθɔːrətiz / 当局，官方；官方机构）, employees, etc. They are obligations（/ ˌɑːblɪˈɡeɪʃnz / 义务；债务） that must be paid under certain conditions and time frames.
 
@@ -16,7 +16,7 @@ The relationship of these items is expressed in the fundamental balance sheet eq
 Assets = Liabilities + Equity
 ```
 
-The meaning of this equation is important. Generally, sales growth, whether rapid(/ ˈræpɪd / 快的，迅速的) or slow, dictates(/ ˈdɪkteɪt / 影响，支配；) a larger [asset base](https://www.investopedia.com/terms/a/asset-base.asp)—higher levels of inventory, [receivables](https://www.investopedia.com/terms/a/accountsreceivable.asp), and [fixed assets](https://www.investopedia.com/terms/f/fixedasset.asp) ([plant, property, and equipment](https://www.investopedia.com/terms/p/ppe.asp)). As a company's assets grow, its liabilities and/or equity also tend to grow(倾向于生长) in order for its financial position to stay in balance.
+The meaning of this equation(/ ɪˈkweɪʒ(ə)n / 等式，方程) is important. Generally, sales growth, whether rapid(/ ˈræpɪd / 快的，迅速的) or slow, dictates(/ ˈdɪkteɪt / 影响，支配；) a larger [asset base](https://www.investopedia.com/terms/a/asset-base.asp)—higher levels of inventory, [receivables](https://www.investopedia.com/terms/a/accountsreceivable.asp), and [fixed assets](https://www.investopedia.com/terms/f/fixedasset.asp) ([plant, property, and equipment](https://www.investopedia.com/terms/p/ppe.asp)). As a company's assets grow, its liabilities and/or equity also tend to grow(倾向于生长) in order for its financial position to stay in balance.
 
 这个等式的意义很重要。一般来说，销售增长，无论是快还是慢，都意味着更大的资产基础——更高水平的库存、应收账款和固定资产（厂房、财产和设备）。随着公司资产的增长，其负债和/或权益也往往会增长，以使其财务状况保持平衡。
 
