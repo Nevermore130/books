@@ -77,9 +77,75 @@ iam-apiserver 服务的 main 函数位于[apiserver.go](https://github.com/marmo
 
 Options 配置接管命令行选项，应用配置接管整个应用的配置，HTTP/GRPC 服务配置接管跟 HTTP/GRPC 服务相关的配置。这 3 种配置独立开来，可以解耦命令行选项、应用和应用内的服务，使得这 3 个部分可以独立扩展，又不相互影响。
 
-我们通过```github.com/marmotedu/iam/pkg/app```包的buildCommand方法来构建命令行参数。这里的核心是，通过NewApp函数构建 Application 实例时，传入的Options实现了Flags() (fss cliflag.NamedFlagSets)方法，通过 buildCommand 方法中的以下代码，将 option 的 Flag 添加到 cobra 实例的 FlagSet 中：
+我们通过```github.com/marmotedu/iam/pkg/app```包的buildCommand方法来构建命令行参数。这里的核心是，通过NewApp函数构建 Application 实例时，传入的Options实现了``Flags() (fss cliflag.NamedFlagSets)``方法，通过 buildCommand 方法中的以下代码，将 option 的 Flag 添加到 cobra 实例的 FlagSet 中：
+
+main函数入口：
 
 ```go
+func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+	if len(os.Getenv("GOMAXPROCS")) == 0 {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
+
+	apiserver.NewApp("iam-apiserver").Run()
+}
+```
+
+https://github.com/marmotedu/iam/blob/v1.0.4/internal/apiserver/apiserver.go    apiserver.NewApp
+
+```go
+
+// NewApp creates a App object with default parameters.
+func NewApp(basename string) *app.App {
+	opts := options.NewOptions()
+  //初始化app对象的一些属性，比如options,description,runFunc等
+  //其中WithRunFunc配置是将command执行完后的回调配置成 run(opts *options.Options) 方法
+  //即cmd.RunE = a.runCommand 中runCommnd方法的配置
+	application := app.NewApp("IAM API Server",
+		basename,
+		app.WithOptions(opts),
+		app.WithDescription(commandDesc),
+		app.WithDefaultValidArgs(),
+		app.WithRunFunc(run(opts)),
+	)
+
+	return application
+}
+
+func run(opts *options.Options) app.RunFunc {
+	return func(basename string) error {
+		log.Init(opts.Log)
+		defer log.Flush()
+
+		cfg, err := config.CreateConfigFromOptions(opts)
+		if err != nil {
+			return err
+		}
+
+		return Run(cfg)
+	}
+}
+
+
+//run.go文件：https://github.com/marmotedu/iam/blob/v1.0.4/internal/apiserver/run.go
+// Run runs the specified APIServer. This should never exit.
+func Run(cfg *config.Config) error {
+	server, err := createAPIServer(cfg)
+	if err != nil {
+		return err
+	}
+
+	return server.PrepareRun().Run()
+}
+```
+
+
+
+https://github.com/marmotedu/iam/blob/v1.0.4/pkg/app/app.go#L157  app.NewApp文件：
+
+```go
+//app.go
 func NewApp(name string, basename string, opts ...Option) *App {
 	a := &App{
 		name:     name,
@@ -95,6 +161,47 @@ func NewApp(name string, basename string, opts ...Option) *App {
 	return a
 }
 
+//NewAPP 中调用的buildCommand
+func (a *App) buildCommand(){
+........
+	var namedFlagSets cliflag.NamedFlagSets
+	if a.options != nil {
+		namedFlagSets = a.options.Flags()
+		fs := cmd.Flags()
+		for _, f := range namedFlagSets.FlagSets {
+			fs.AddFlagSet(f)
+		}
+
+		usageFmt := "Usage:\n  %s\n"
+		cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
+		cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\n\n"+usageFmt, cmd.Long, cmd.UseLine())
+			cliflag.PrintSections(cmd.OutOrStdout(), namedFlagSets, cols)
+		})
+		cmd.SetUsageFunc(func(cmd *cobra.Command) error {
+			fmt.Fprintf(cmd.OutOrStderr(), usageFmt, cmd.UseLine())
+			cliflag.PrintSections(cmd.OutOrStderr(), namedFlagSets, cols)
+
+			return nil
+		})
+	}
+ ........
+}
+
+// RunFunc defines the application's startup callback function.
+type RunFunc func(basename string) error
+
+// WithRunFunc is used to set the application startup callback function option.
+func WithRunFunc(run RunFunc) Option {
+	return func(a *App) {
+		a.runFunc = run
+	}
+}
+```
+
+
+
+```go
 
 // Options runs a iam api server.
 type Options struct {
@@ -107,6 +214,21 @@ type Options struct {
 	JwtOptions              *genericoptions.JwtOptions             `json:"jwt"      mapstructure:"jwt"`
 	Log                     *log.Options                           `json:"log"      mapstructure:"log"`
 	FeatureOptions          *genericoptions.FeatureOptions         `json:"feature"  mapstructure:"feature"`
+}
+
+// Flags returns flags for a specific APIServer by section name.
+func (o *Options) Flags() (fss cliflag.NamedFlagSets) {
+	o.GenericServerRunOptions.AddFlags(fss.FlagSet("generic"))
+	o.JwtOptions.AddFlags(fss.FlagSet("jwt"))
+	o.GRPCOptions.AddFlags(fss.FlagSet("grpc"))
+	o.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
+	o.RedisOptions.AddFlags(fss.FlagSet("redis"))
+	o.FeatureOptions.AddFlags(fss.FlagSet("features"))
+	o.InsecureServing.AddFlags(fss.FlagSet("insecure serving"))
+	o.SecureServing.AddFlags(fss.FlagSet("secure serving"))
+	o.Log.AddFlags(fss.FlagSet("logs"))
+
+	return fss
 }
 ```
 
@@ -369,6 +491,22 @@ func (s *SecretHandler) Create(c *gin.Context) {
   }
 
   core.WriteResponse(c, nil, r)
+}
+
+
+//https://github.com/marmotedu/iam/blob/v1.0.3/internal/apiserver/controller/v1/secret/secret.go 文件
+// SecretHandler create a secret handler used to handle request for secret resource.
+type SecretHandler struct {
+	srv   srvv1.Service
+	store store.Factory
+}
+
+// NewSecretHandler creates a secret handler.
+func NewSecretHandler(store store.Factory) *SecretHandler {
+	return &SecretHandler{
+		srv:   srvv1.NewService(store),
+		store: store,
+	}
 }
 ```
 
