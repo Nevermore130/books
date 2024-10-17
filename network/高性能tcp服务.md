@@ -435,7 +435,7 @@ int event_loop_run(struct event_loop *eventLoop) {
 }
 ```
 
-event_loop_handle_pending_channel 函数的作用是遍历当前 event loop 里 pending 的 channel event 列表，将它们和 event_dispatcher 关联起来，从而修改感兴趣的事件集合。
+event_loop_handle_pending_channel 函数的作用是遍历当前 event loop 里 pending 的 channel event 列表，将它们和 event_dispatcher 关联起来（调用event_dispatcher add方法），从而修改感兴趣的事件集合。
 
 这里有一个点值得注意，因为 event loop 线程得到活动事件之后，会回调事件处理函数，这样像 onMessage 等应用程序代码也会在 event loop 线程执行，如果这里的业务逻辑过于复杂，就会导致 event_loop_handle_pending_channel 执行的时间偏后，从而影响 I/O 的检测。所以，**将 I/O 线程和业务逻辑线程隔离，让 I/O 线程只负责处理 I/O 交互，让业务线程处理业务**，是一个比较常见的做法。
 

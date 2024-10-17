@@ -16,11 +16,37 @@ Working Capital（營運資本）= Current Assets（流動資產）– Current L
 
 Change in Working Capital **為兩個財報期間的營運資本差值**
 
-公司讓客戶賒帳（Accounts Receivable）或是向供應商賒帳買原料（Accounts Payable）、存貨過多（Inventory）、預留未來必須支付的產品保固、員工紅利（Other Working Capital）等等，都會影響**營運資本（Working Capital）。**
+## Indirect Method(间接方法) ##
 
-**當公司購買更多存貨時，流動資產會增加，要從淨收入中扣除存貨價值的變化，因為這被視為現金流出**。應收賬款（Accounts Receivable）也是如此，當它增加時，這代表公司讓客戶賒帳，沒有真實的現金入帳，所以應收賬款也需要從淨收入中被排除。
+**OCF = NI + D&A - NWC**
 
-反之，如果應付賬款（Accounts Payable）等流動負債項目增加，這被視為現金流入，因為公司暫時不用付錢給供應商，代表有更多的現金可以保留在其業務中，所以要把這個金額加回到淨收入中。
+**Where:**
+
+- **NI equals the company's net income**
+- **D&A is depreciation and amortization**
+- **NWC is the increase in net working capital**
+
+Net income must be adjusted for changes in [working capital](https://www.investopedia.com/terms/w/workingcapital.asp) accounts on the company's balance sheet. For example, an increase in AR indicates that revenue was earned and reported in net income on an accrual basis although cash has not been received. This increase in AR must be subtracted from net income to find the true cash impact of the transactions.
+
+净利润必须根据公司资产负债表上营运资金账户的变化进行调整，例如，AR 的增加表明尽管尚未收到现金，但已赚取收入并按权责发生制在净利润中报告。必须从净利润中减去应收账款的增加，才能找到交易的真实现金影响。
+
+Conversely, an increase in AP indicates that expenses were incurred and booked on an accrual basis that has not yet been paid. This increase in AP would need to be added back to net income to find the true cash impact.
+
+相反，AP 的增加表明已产生并按权责发生制记账但尚未支付的费用。 AP 的增加需要加回到净利润中才能找到真正的现金影响。
+
+### Example of the Indirect Method
+
+Consider a manufacturing company that reports a net income of 100 million, while its operating cash flow is 150 million. The difference results from a depreciation expense of 150 million, an increase in accounts receivable of 50 million, and a decrease in accounts payable of 50 million. It would appear on the operating cash flow section of the cash flow statement in this manner:
+
+<img src="./images/image-20241014200412087.png" alt="image-20241014200412087" style="zoom:50%;" />
+
+## How Does Operating Cash Flow Differ From Net Income?
+
+Operating cash flow differs from net income which is the difference between sales revenue and the costs of goods, [operating expenses, taxes, and other costs](https://www.investopedia.com/ask/answers/012615/are-taxes-calculated-operating-cash-flow.asp). When using the indirect method to calculate operating cash flow, net income is one of the initial variables. While both metrics measure the financial health of a firm, the main difference between [operating cash flow and net income](https://www.investopedia.com/ask/answers/012915/what-difference-between-operating-cash-flow-and-net-income.asp) is the time gap between sales and actual payments. If payments are delayed, there [may be a difference](https://www.investopedia.com/ask/answers/042115/what-difference-between-net-income-and-cash-flow-operating-activities.asp) between net income and operating cash flow.
+
+经营现金流量与净利润不同，净利润是销售收入与商品成本、营业费用、税金和其他成本之间的差额。采用间接法计算经营现金流量时，净利润是初始变量之一。虽然这两个指标都衡量公司的财务状况，但经营现金流和净利润之间的主要区别在于销售和实际付款之间的时间差距。如果付款延迟，净利润和经营现金流之间可能会出现差异。
+
+
 
 
 
