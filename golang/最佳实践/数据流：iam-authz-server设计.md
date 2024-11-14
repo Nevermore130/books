@@ -199,7 +199,7 @@ func (a *AuthzController) Authorize(c *gin.Context) {
 
 * 在 Authorize 方法中调用 c.ShouldBind(&r) ，将 API 请求参数解析到 ladon.Request 类型的结构体变量中。
 * authorizer.go  中 的NewAuthorization(a.store)  返回AuthorizationInterface对象，**a.store 实现了PolicyGetter 接口**
-* 调用authorization.NewAuthorizer函数，该函数会创建并返回包含 Manager 和 AuditLogger 字段的Authorizer类型的变量。**并将AuthorizationInterface对象Manager中**
+* 调用authorization.NewAuthorizer函数，该函数会创建并返回包含 Manager 和 AuditLogger 字段的Authorizer类型的变量。**并将AuthorizationInterface对象放到Manager中**
 
 ```go
 //https://github.com/marmotedu/iam/blob/v1.0.4/internal/authzserver/authorization/authorizer/authorizer.go 文件

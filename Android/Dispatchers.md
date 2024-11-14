@@ -1,5 +1,3 @@
-Kotlin 的 launch 会调用 startCoroutineCancellable()，接着又会调用 createCoroutineUnintercepted()，最终会调用编译器帮我们生成 SuspendLambda 实现类当中的 create() 方法。这样，协程就创建出来了。不过，协程是创建出来了，可它是如何运行的呢？
-
 ### Dispatchers ###
 
 launch{}本质上是调用了 startCoroutineCancellable() 当中的 createCoroutineUnintercepted() 方法创建了协程。
@@ -14,7 +12,7 @@ public fun <T> (suspend () -> T).startCoroutineCancellable(completion: Continuat
 }
 ```
 
-Dispatchers、CoroutineDispatcher、ContinuationInterceptor、CoroutineContext 之间的关系。
+在正式分析 intercepted() 之前，我们还需要弄清楚 Dispatchers、CoroutineDispatcher、ContinuationInterceptor、CoroutineContext 之间的关系。
 
 ```kotlin
 // 代码段2
@@ -40,10 +38,9 @@ public interface ContinuationInterceptor : CoroutineContext.Element {}
 public interface Element : CoroutineContext {}
 ```
 
-*  Dispatchers 是一个单例对象，它当中的 Default、Main、Unconfined、IO，类型都是 CoroutineDispatcher
-* 而它本身就是 CoroutineContext
+Dispatchers 是一个单例对象，它当中的 Default、Main、Unconfined、IO，类型都是 CoroutineDispatcher，而它本身就是 CoroutineContext
 
-<img src="./images/image-20240917170117666.png" alt="image-20240917170117666" style="zoom:50%;" />
+<img src="./images/image-20241110105550634.png" alt="image-20241110105550634" style="zoom:50%;" />
 
 ```kotlin
 // 代码段3
@@ -61,36 +58,9 @@ private fun testLaunch() {
         logX("World!")
     }
 }
-
-/**
- * 控制台输出带协程信息的log
- */
-fun logX(any: Any?) {
-    println(
-        """
-================================
-$any
-Thread:${Thread.currentThread().name}
-================================""".trimIndent()
-    )
-}
-
-/*
-输出结果
-================================
-Hello!
-Thread:DefaultDispatcher-worker-1 @coroutine#1
-================================
-================================
-World!
-Thread:DefaultDispatcher-worker-1 @coroutine#1
-================================
-*/
 ```
 
-我们没有为 launch() 传入任何 CoroutineContext 参数，但通过执行结果，我们发现协程代码居然执行在 DefaultDispatcher
-
-来分析下 launch 的源代码
+回过头来分析下 launch 的源代码
 
 ```kotlin
 // 代码段4
@@ -110,10 +80,9 @@ public fun CoroutineScope.launch(
 }
 ```
 
-* 请留意 launch 的第一个参数，context，它的默认值是 EmptyCoroutineContext
-* CoroutineContext 就相当于 Map，而 EmptyCoroutineContext 则相当于一个空的 Map。所以，我们可以认为，这里的 EmptyCoroutineContext 传了也相当于没有传，它的目的只是为了让 context 参数不为空而已
+* launch 的第一个参数，context，它的默认值是 EmptyCoroutineContext，CoroutineContext 就相当于 Map，而 EmptyCoroutineContext 则相当于一个空的 Map
 
-调用 newCoroutineContext(context)，将传入的 context 参数重新包装一下，然后返回
+上面代码的注释 1，这行代码会调用 newCoroutineContext(context)，将传入的 context 参数重新包装一下，然后返回
 
 ```kotlin
 // 代码段5
@@ -129,13 +98,15 @@ public actual fun CoroutineScope.newCoroutineContext(context: CoroutineContext):
 }
 ```
 
-* 由于 newCoroutineContext() 是 CoroutineScope 的扩展函数，因此，我们可以直接访问 CoroutineScope 的 coroutineContext 对象,它其实就是 CoroutineScope 对应的上下文。**foldCopiesForChildCoroutine() 的作用，其实就是将 CoroutineScope 当中的所有上下文元素都拷贝出来，然后跟传入的 context 参数进行合并。这行代码，可以让子协程继承父协程的上下文元素**。
-* 注释 2，它的作用是在调试模式下，为我们的协程对象增加唯一的 ID。我们在代码段 3 的输出结果中看到的“@coroutine#1”，其中的数字“1”就是在这个阶段生成的
+* 注释 1，由于 newCoroutineContext() 是 CoroutineScope 的扩展函数，因此，我们可以直接访问 CoroutineScope 的 coroutineContext 对象，它其实就是 CoroutineScope 对应的上下文。foldCopiesForChildCoroutine() 的作用，其实就是将 CoroutineScope 当中的所有上下文元素都拷贝出来，然后跟传入的 context 参数进行合并。**这行代码，可以让子协程继承父协程的上下文元素。**
+* 注释 2，它的作用是在调试模式下，为我们的协程对象增加唯一的 ID。
 * 注释 3，如果合并过后的 combined 当中没有 CoroutineDispatcher，那么，就会默认使用 Dispatchers.Default。
+
+由于我们定义的 scope 没有指定 Dispatcher，同时 launch 的参数也没有传入 Dispatcher，**最终在 newCoroutineContext() 的时候，会被默认指定为 Default 线程池。**
 
 ### CoroutineDispatcher 拦截器 ###
 
-让我们回到开头提到过的 startCoroutineCancellable() 方法的源代码，其中的 createCoroutineUnintercepted() 方法，它的返回值类型就是Continuation。**而 intercepted() 方法，其实就是 Continuation 的扩展函数。**
+回到开头提到过的 startCoroutineCancellable() 方法的源代码，**其中的 createCoroutineUnintercepted() 方法，它的返回值类型就是Continuation**(创建了协程，对应block的类)。而 intercepted() 方法，其实就是 Continuation 的扩展函数。
 
 ```kotlin
 // 代码段6
@@ -167,13 +138,11 @@ internal abstract class ContinuationImpl(
 }
 ```
 
-* startCoroutineCancellable() 当中的 intercepted() 最终会调用 BaseContinuationImpl 的 intercepted() 方法
-* intercepted() 方法首先会判断它的成员变量 intercepted 是否为空，如果为空，**就会调用 context[ContinuationInterceptor]，获取上下文当中的 Dispatcher 对象。**
-* 以代码段 3 当中的逻辑为例，**这时候的 Dispatcher 肯定是 Default 线程池**。
+``startCoroutineCancellable() ``当中的 intercepted() 最终会调用 BaseContinuationImpl 的 intercepted() 方法。
 
+intercepted() 方法首先会判断它的成员变量 intercepted 是否为空，如果为空，就会调用 **context[ContinuationInterceptor]，获取上下文当中的 Dispatcher 对象**。以代码段 3 当中的逻辑为例，这时候的 Dispatcher 肯定是 Default 线程池。
 
-
-继续跟进 interceptContinuation(this) 方法的话，会发现程序最终会调用 CoroutineDispatcher 的 interceptContinuation() 方法。
+继续跟进 interceptContinuation(this) 方法的话，会发现程序最终会调用 CoroutineDispatcher 的 interceptContinuation() 方法
 
 ```kotlin
 // 代码段7
@@ -187,7 +156,8 @@ public abstract class CoroutineDispatcher :
 }
 ```
 
-interceptContinuation() 直接返回了一个 DispatchedContinuation 对象，并且将 this、continuation 作为参数传了进去。**这里的 this，其实就是 Dispatchers.Default。**
+* interceptContinuation() 直接返回了一个 DispatchedContinuation 对象
+* 并且将 this、continuation 作为参数传了进去。这里的 this，其实就是 Dispatchers.Default,   continuation是block
 
 如果我们把 startCoroutineCancellable() 改写一下，它实际上会变成下面这样
 
@@ -211,7 +181,7 @@ public fun <T> (suspend () -> T).startCoroutineCancellable(completion: Continuat
 }
 ```
 
-注释 1，2 我们都已经分析完了，现在只剩下注释 3 了。这里的 resumeCancellableWith()，其实就是真正将协程任务分发到线程上的逻辑
+这里的 resumeCancellableWith()，其实就是真正将协程任务分发到线程上的逻辑
 
 ```kotlin
 // 代码段9
@@ -231,9 +201,12 @@ internal class DispatchedContinuation<in T>(
 }
 ```
 
-也就是，DispatchedContinuation 是实现了 Continuation 接口，同时，**它使用了“类委托”的语法，将接口的具体实现委托给了它的成员属性 continuation。**
+* DispatchedContinuation 是实现了 Continuation 接口
+* 同时，它使用了“类委托”的语法，将接口的具体实现委托给了它的成员属性 continuation
+* 我们知道它的成员属性 dispatcher 对应的就是 Dispatcher.Default
+* 而成员属性 continuation 对应的则是 launch 当中传入的 SuspendLambda 实现类。
 
-**它的成员属性 dispatcher 对应的就是 Dispatcher.Default，而成员属性 continuation 对应的则是 launch 当中传入的 SuspendLambda 实现类。**
+
 
 另外，DispatchedContinuation 还继承自 DispatchedTask，我们来看看 DispatchedTask 到底是什么。
 
@@ -255,9 +228,7 @@ internal abstract class Task(
 }
 ```
 
-DispatchedContinuation 继承自 DispatchedTask，而它则是 SchedulerTask 的子类，SchedulerTask 是 Task 的类型别名，而 Task 实现了 Runnable 接口
-
-**因此，DispatchedContinuation 不仅是一个 Continuation，同时还是一个 Runnable。**
+DispatchedContinuation 继承自 DispatchedTask，而它则是 SchedulerTask 的子类，SchedulerTask 是 Task 的类型别名，而 Task 实现了 Runnable 接口。因此，**DispatchedContinuation 不仅是一个 Continuation，同时还是一个 Runnable。**
 
 既然它是 Runnable，也就意味着它可以被分发到 Java 的线程当中去执行了。所以接下来，我们就来看看 resumeCancellableWith() 当中具体的逻辑
 
@@ -306,11 +277,11 @@ internal object Unconfined : CoroutineDispatcher() {
 }
 ```
 
-* dispatcher.isDispatchNeeded()，通过查看 CoroutineDispatcher 的源代码，我们发现它的返回值始终都是 true
-* dispatcher.dispatch(context, this)，**这里其实就相当于将代码的执行流程分发到 Default 线程池**。**dispatch() 的第二个参数要求是 Runnable，这里我们传入的是 this，这是因为 DispatchedContinuation 本身就间接实现了 Runnable 接口。**
-* executeUnconfined{}，它其实就对应着 Dispather 是 Unconfined 的情况，这时候，协程的执行不会被分发到别的线程，而是直接在当前线程执行。
+* 注释 1，dispatcher.isDispatchNeeded()，通过查看 CoroutineDispatcher 的源代码，我们发现它的返回值始终都是 true。在它的子类当中，只有 Dispatchers.Unconfined 会将其重写成 false。这也就意味着，除了 Unconfined 以外，其他的 Dispatcher 都会返回 true
+* 注释 2，**dispatcher.dispatch(context, this)，这里其实就相当于将代码的执行流程分发到 Default 线程池**。dispatch() 的第二个参数要求是 Runnable，这里我们传入的是 this，这是因为 DispatchedContinuation 本身就间接实现了 Runnable 接口。
+* 注释 3，executeUnconfined{}，它其实就对应着 Dispather 是 Unconfined 的情况，这时候，协程的执行不会被分发到别的线程，而是直接在当前线程执行。
 
-让我们继续沿着注释 2 进行分析，这里的 dispatcher.dispatch() 其实就相当于调用了 Dispatchers.Default.dispatch()。让我们看看它的逻辑
+dispatcher.dispatch() 其实就相当于调用了 Dispatchers.Default.dispatch()
 
 ```kotlin
 public actual object Dispatchers {
@@ -341,7 +312,7 @@ internal open class SchedulerCoroutineDispatcher(
 }
 ```
 
-我们可以看到 Dispatchers.Default.dispatch() 最终会调用 SchedulerCoroutineDispatcher 的 dispatch() 方法，**而它实际上调用的是 coroutineScheduler.dispatch()。**
+CoroutineScheduler 的源代码：
 
 ```kotlin
 internal class CoroutineScheduler(
@@ -386,13 +357,13 @@ internal class CoroutineScheduler(
 }
 ```
 
-CoroutineScheduler 其实是 Java 并发包下的 Executor 的子类，**它的 execute() 方法也被转发到了 dispatch()。**
+CoroutineScheduler 其实是 Java 并发包下的 Executor 的子类，它的 execute() 方法也被转发到了 dispatch()。
 
-* 注释 1，将传入的 Runnable 类型的 block（也就是 DispatchedContinuation），包装成 Task
+* 注释 1，将传入的 Runnable 类型的 block（也就是 DispatchedContinuation），包装成 Task。
 * 注释 2，currentWorker()，拿到当前执行的线程。这里的 Worker 其实是一个内部类，它本质上仍然是 Java 的 Thread。
 * 注释 3，currentWorker.submitToLocalQueue()，将当前的 Task 添加到 Worker 线程的本地队列，等待执行。
 
-我们就来分析下 Worker 是如何执行 Task 的。
+分析下 Worker 是如何执行 Task 的。
 
 ```kotlin
 internal inner class Worker private constructor() : Thread() {
@@ -438,7 +409,9 @@ internal inner class Worker private constructor() : Thread() {
 }
 ```
 
-* 注释 1，在 while 循环当中，会一直尝试从 Worker 的本地队列取 Task 出来，如果存在需要执行的 Task，就会进入下一步
+Worker 会重写 Thread 的 run() 方法，然后把执行流程交给 runWorker()
+
+* 注释 1，在 while 循环当中，会一直尝试从 Worker 的本地队列取 Task 出来，如果存在需要执行的 Task，就会进入下一步。
 * 注释 2，executeTask(task)，其实就是执行对应的 Task。
 
 ```kotlin
@@ -474,9 +447,10 @@ internal abstract class Task(
 }
 ```
 
-在 Worker 的 executeTask() 方法当中，会调用 runSafely() 方法，**而在这个方法当中，最终会调用 task.run()。前面我们就提到过 Task 本质上就是 Runnable，而 Runnable.run() 其实就代表了我们的协程任务真正执行了！**
+* 在 Worker 的 executeTask() 方法当中，会调用 runSafely() 方法，而在这个方法当中，最终会调用 task.run()。
+* Task 本质上就是 Runnable，而 Runnable.run() 其实就代表了我们的协程任务真正执行了！
 
-那么，task.run() 具体执行的代码是什么呢？其实它是执行的 DispatchedTask.run()。**这里的 DispatchedTask 实际上是 DispatchedContinuation 的父类。**
+task.run() 具体执行的代码是什么呢？其实它是执行的 DispatchedTask.run()。这里的 DispatchedTask 实际上是 DispatchedContinuation 
 
 ```kotlin
 internal class DispatchedContinuation<in T>(
@@ -524,12 +498,16 @@ internal class DispatchedContinuation<in T>(
 ```
 
 * 注释 1，在协程代码执行之前，它首先会判断当前协程是否已经取消。如果已经取消的话，就会调用 continuation.resumeWithStackTrace(cause) 将具体的原因传出去。
-* 注释 2，判断协程是否发生了异常，如果已经发生了异常，则需要调用 continuation.resumeWithException(exception) 将异常传递出去
-* 注释 3，如果一切正常，则会调用 continuation.resume(getSuccessfulResult(state))，这时候，协程才会正式启动，并且执行 launch 当中传入的 Lambda 表达式。
+* 注释 2，判断协程是否发生了异常，如果已经发生了异常，则需要调用 continuation.resumeWithException(exception) 将异常传递出去。
+* 注释 3，如果一切正常，则会调用 continuation.resume(getSuccessfulResult(state))，这时候，协程才会正式启动，**并且执行 launch 当中传入的 Lambda 表达式。**
+
+![20241110111827](./images/20241110111827.gif)
 
 
 
-<video src="./images/20240908124333_rec_.mp4"></video>
+
+
+
 
 
 
