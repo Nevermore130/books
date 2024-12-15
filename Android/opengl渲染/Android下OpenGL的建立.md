@@ -61,3 +61,7 @@ GLThread中Run函数主要逻辑：
 * mEglHelper.createSurface():
 
 <img src="../images/image-20241111223529887.png" alt="image-20241111223529887" style="zoom:50%;" />
+
+* 回调onDrawFrame之后会调用mEglHelper.swap()函数来渲染到屏幕上（即调用eglSwapBuffers）
+
+onDrawFrame就是通过回调的openGL上下文来调用shader等程序处理GPU 图像数据，最后调用eglSwapBuffers 来渲染到屏幕

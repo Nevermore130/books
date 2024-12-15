@@ -1,3 +1,188 @@
+### OpenGL ES 的纹理 ###
+
+* OpenGL 中的纹理用 GLUint 类型来表示，通常我们称之为 Texture 或者 TextureID，可以用来表示图像、视频画面等数据。
+* 每个二维纹理都由许多小的片元组成，每一个片元我们可以理解为一个像素点
+* 大多数的渲染过程，都是基于纹理进行操作的，最简单的一种方式就是从一个图像文件加载数据，然后上传到显存中构造成一个纹理
+
+#### 纹理坐标系 ####
+
+<img src="../images/image-20241114213925182.png" alt="image-20241114213925182" style="zoom:50%;" />
+
+这种坐标其实是和 OpenGL 中的纹理坐标做了一个旋转 180 度，从本地图片中加载一张纹理并且渲染到界面上的时候，就会用到纹理坐标和计算机系统的坐标的转换。
+
+
+
+##### 纹理创建与绑定  ####
+
+如何**加载一张图片作为 OpenGL 中的纹理**。首先要在显卡中创建一个纹理对象
+
+```c
+void glGenTextures (GLsizei n, GLuint* textures)
+```
+
+* 第一个参数是需要创建几个纹理对象
+* 第二个参数是一个数组（指针）的形式，**函数执行之后会将创建好的纹理句柄放入到这个数组中**
+* 如果仅仅需要创建一个纹理对象的话，只需要声明一个 GLuint 类型的 texId**，然后将这个纹理 ID 取地址作为第二个参数，就可以创建出这个纹理对象**
+
+```
+glGenTextures(1, &texId);
+```
+
+执行完上面这个指令之后，**OpenGL 引擎就会在显卡中创建出一个纹理对象，并且把这个纹理对象的句柄存储到 texId 这个变量中。**
+
+接下来我们要对这个纹理对象进行操作，具体应该怎么做呢？OpenGL ES 提供的都是类似于状态机的调用方式，也就是说在对某个 **OpenGL ES 对象操作之前，先进行绑定操作，然后接下来所有操作的目标都是针对这个绑定的对象进行的**
+
+```c
+glBindTexture(GL_TEXTURE_2D, texId);
+```
+
+执行完上面这个指令之后，OpenGL ES 引擎认为这个纹理对象已经处于绑定状态，**那么接下来所有对于纹理的操作都是针对这个纹理对象的了**
+
+当我们操作完毕之后可以调用如下代码进行解绑：
+
+```c
+glBindTexture(GL_TEXTURE_2D, 0);
+//代表我们不会对 texId 这个纹理对象做任何操作了，所以上面这行代码一般在一个 GLProgram 执行完成之后调用。
+```
+
+那一般对纹理的操作或者设置有哪些呢？
+
+首先就是纹理的过滤方式，当纹理对象被渲染到物体表面上的时候，纹理的过滤方式指定纹理的放大和缩小规则
+
+```c
+//放大（magnification）规则的设置：
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+//缩小（minification）规则的设置：
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+//这种过滤方式叫做双线性过滤，底层使用双线性插值算法来平滑像素之间的过渡部分，OpenGL 的具体实现会使用四个邻接的纹理元素，并在它们之间用一个线性插值算法做插值，这种过滤方式是最常用的。
+```
+
+OpenGL 还提供了 GL_NEAREST 的过滤方式，GL_NEAREST 被称为最邻近过滤，底层为每个片段选择最近的纹理元素进行填充，缺点就是当放大的时候会丢失掉一些细节，会有很严重的锯齿效果
+
+接下来，我们看纹理对象的另外一个设置，也就是在纹理坐标系中的 s 轴和 t 轴超出范围的纹理处理规则
+
+```c
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+//给这个纹理的 s 轴和 t 轴的坐标设置为 GL_CLAMP_TO_EDGE 类型，代表所有大于 1 的像素值都按照 1 这个点的像素值来绘制，所有小于 0 的值都按照 0 这个点的像素值来绘制
+
+//GL_REPEAT 代表超过 1 的会从 0 再重复一遍，也就是再平铺一遍，而 GL_MIRRORED_REPEAT 就是完全镜像地平铺一遍。
+```
+
+#### 纹理的上传与下载 ####
+
+* 假设我们有一张 PNG 类型的图片，我们需要将它解码为内存中 RGBA 裸数据，所以首先我们需要解码
+* 可以采用跨平台（C++ 层）的方式，引用 libpng 这个库来进行解码操作，当然也可以采用各自平台的 API 进行解码。无论哪一种方式，最终都可以得到 RGBA 的数据
+* 等拿到 RGBA 的数据之后，记为 uint8_t 数组类型的 pixels。
+
+接下来，就是要将 PNG 素材的内容放到这个纹理对象上面去了，如何上传到纹理上面去呢？代码如下：
+
+```c
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+        GL_UNSIGNED_BYTE, pixels);
+```
+
+* 执行上述指令的前提是我们已经绑定了某个纹理
+* OpenGL 的大部分纹理一般只接受 RGBA 类型的数据
+* 上述指令正确执行之后，**RGBA 的数组表示的像素内容会上传到显卡里面 texId 所代表的纹理对象中**，以后要使用这个图片，直接使用这个纹理 ID 就可以了。
+
+既然有内存数据上传到显存的操作，那么一定也会有显存的数据回传回内存的操作，这个应该如何实现呢？代码如下：
+
+```c
+glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+```
+
+将绑定的这个纹理对象代表的内容拷贝回 pixels 这个数组中，这个拷贝会比较耗时，并且拷贝时间会和分辨率（width\height）大小成正比。一般在实际的开发工作中要尽量避免这种内存和显存之间的数据拷贝与传输，**而是使用各个平台提供的快速映射 API 去完成内存与显存的拷贝工作。**
+
+接下来的任务就是将这个纹理绘制到物体（屏幕）上，首先要搭建好各自平台的 OpenGL ES 的环境，包括上下文与窗口管理，然后创建显卡可执行程序，最终让程序跑起来
+
+先来看一个最简单的顶点着色器（Vertex Shader）
+
+```glsl
+static char* COMMON_VERTEX_SHADER =
+      "attribute vec4 position;                   \n"
+      "attribute vec2 texcoord;                   \n"
+      "varying vec2 v_texcoord;                   \n"
+      "                                            \n"
+      "void main(void)                              \n"
+      "{                                              \n"
+      "   gl_Position = position;                 \n"
+      "   v_texcoord = texcoord;                  \n"
+      "}                                              \n";
+```
+
+片元着色器（Fragment Shader），代码如下
+
+```glsl
+static char* COMMON_FRAG_SHADER =
+      "precision highp float;                                       \n"
+      "varying highp vec2 v_texcoord;                               \n"
+      "uniform sampler2D texSampler;                                \n"
+      "                                                               \n"
+      "void main() {                                                 \n"
+      "    gl_FragColor = texture2D(texSampler, v_texcoord);      \n"
+      "}                                                                                                                                       \n";
+```
+
+* 利用上面两个 Shader 创建好的这个 Program，我们记为 mGLProgId
+* 这个 Program 中的重点属性以及常量的句柄寻找出来，以备后续渲染过程中向顶点着色器和片元着色器传递数据。
+
+```c
+mGLVertexCoords = glGetAttribLocation(mGLProgId, "position");
+mGLTextureCoords = glGetAttribLocation(mGLProgId, "texcoord");
+mGLUniformTexture = glGetUniformLocation(mGLProgId, "texSampler");
+```
+
+* 我们要从 Program 的顶点着色器中读取两个 attribute，并放置到全局变量的 mGLVertexCoords 与 mGLTextureCoords 中
+* 从 Program 的片元着色器中读取出来的 uniform 会放置到 mGLUniformTexture 这个变量里。
+
+```c
+glViewport(0, 0, screenWidth, screenHeight); //规定窗口大小： 函数中的参数 screenWidth 表示绘制 View 或者目标 FBO 的宽度，screenHeight 表示绘制 View 或者目标 FBO 的高度。
+
+glUseProgram(mGLProgId); //使用显卡绘制程序：
+
+//设置物体坐标与纹理坐标：
+GLfloat vertices[] = { -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f };
+glVertexAttribPointer(mGLVertexCoords, 2, GL_FLOAT, 0, 0, vertices);
+glEnableVertexAttribArray(mGLVertexCoords);
+
+
+//设置纹理坐标：
+GLfloat texCoords1[] = { 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f };
+GLfloat texCoords2[] = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+glVertexAttribPointer(mGLTextureCoords, 2, GL_FLOAT, 0, 0,  texCoords2);
+glEnableVertexAttribArray(mGLTextureCoords);
+
+
+```
+
+* 代码中有两个纹理坐标数组，分别是 texCoords1 与 texCoords2，最终我们使用的是 texCoords2 这个纹理坐标
+* 因为我们的纹理对象是将一个 RGBA 格式的 PNG 图片上传到显卡上，其实**上传上来本身就需要转换坐标系，这两个纹理坐标恰好就是做了一个上下的翻转，从而将计算机坐标系和 OpenGL 坐标系进行转换。**
+* 对于第一次上传内存数据的场景纹理坐标一般都会选用 texCoords2
+* 但是如果这个纹理对象是 OpenGL 中的一个普通纹理对象的话，则需要使用 texCoords1。(不用转换坐标了)
+
+指定我们要绘制的纹理对象，并且将纹理句柄传递给片元着色器中的 uniform 常量：
+
+```c
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, texId);
+glUniform1i(mGLUniformTexture, 0);
+
+//执行绘制操作：
+glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+```
+
+相当于将最初内存中的 PNG 图片绘制到默认的 FBO 上去了，最终再通过各平台的窗口管理操作（Android 平台的 swapBuffer、iOS 平台的 renderBuffer），就可以让用户在屏幕上看到了。
+
+
+
+除此之外，关于纹理的绘制我们还要额外注意一点：**我们提交给 OpenGL 的绘图指令并不会马上送给图形硬件执行，而是会放到一个指令缓冲区中。考虑性能的问题，等缓冲区满了以后，这些指令会被一次性地送给图形硬件执行**，指令比较少或比较简单的时候，是没办法填满缓冲区的，所以这些指令不能马上执行，也就达不到我们想要的效果。因此每次写完绘图代码，想让它立即完成效果的时候，就需要我们自己手动调用 glFlush() 或 gLFinish() 函数。
+
+
+
 ### GLSL 语法与内建函数 ###
 
 这个部分的目标就是实现一组着色器来完成增强对比度的功能，但是这组着色器还不能直接看到效果，因为着色器是需要运行到显卡中的
@@ -80,20 +265,6 @@ vec4 gl_posotion;
 ```c
 vec4 gl_FragColor;
 ```
-
-
-
-### OpenGL ES 的纹理 ###
-
-* OpenGL 中的纹理用 GLUint 类型来表示，通常我们称之为 Texture 或者 TextureID，可以用来表示图像、视频画面等数据。
-* 每个二维纹理都由许多小的片元组成，每一个片元我们可以理解为一个像素点
-* 大多数的渲染过程，都是基于纹理进行操作的，最简单的一种方式就是从一个图像文件加载数据，然后上传到显存中构造成一个纹理
-
-
-
-
-
-
 
 
 

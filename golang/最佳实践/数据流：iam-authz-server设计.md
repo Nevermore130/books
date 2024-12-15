@@ -425,10 +425,86 @@ type StoreClient interface {
 }
 ```
 
+```internal/authzserver/store/client.go ```
+
+**获取StoreClient的实现，GRPCClient**
+
+```go
+// GetGRPCClientOrDie return cache instance and panics on any error.
+func GetGRPCClientOrDie(address string, clientCA string) StoreClient {
+	if address != "" && clientCA != "" {
+		once.Do(func() {
+			var (
+				err   error
+				conn  *grpc.ClientConn
+				creds credentials.TransportCredentials
+			)
+
+			creds, err = credentials.NewClientTLSFromFile(clientCA, "")
+			if err != nil {
+				log.Panicf("credentials.NewClientTLSFromFile err: %v", err)
+			}
+
+			conn, err = grpc.Dial(address, grpc.WithBlock(), grpc.WithTransportCredentials(creds))
+			if err != nil {
+				log.Panicf("Connect to grpc server failed, error: %s", err.Error())
+			}
+
+			client = &GRPCClient{pb.NewCacheClient(conn)}
+			log.Infof("Connected to grpc server, address: %s", address)
+		})
+	}
+
+	return client
+}
+```
+
+```go
+//https://github.com/marmotedu/iam/blob/v1.0.4/internal/authzserver/store/client.go
+// GetPolicies returns all the authorization policies.
+func (c *GRPCClient) GetPolicies() (map[string][]*ladon.DefaultPolicy, error) {
+	pols := make(map[string][]*ladon.DefaultPolicy)
+
+	log.Info("Loading policies")
+
+	req := &pb.ListPoliciesRequest{
+		Offset: pointer.ToInt64(0),
+		Limit:  pointer.ToInt64(-1),
+	}
+
+	resp, err := c.cli.ListPolicies(context.Background(), req)
+	if err != nil {
+		return nil, errors.Wrap(err, "list policies failed")
+	}
+
+	log.Infof("Policies found (%d total)[username:name]:", len(resp.Items))
+
+	for _, v := range resp.Items {
+		log.Infof(" - %s:%s", v.Username, v.Name)
+
+		var policy ladon.DefaultPolicy
+
+		if err := json.Unmarshal([]byte(v.PolicyShadow), &policy); err != nil {
+			log.Warnf("failed to load policy for %s, error: %s", v.Name, err.Error())
+
+			continue
+		}
+
+		pols[v.Username] = append(pols[v.Username], &policy)
+	}
+
+	return pols, nil
+}
+```
+
+##### 初始化 Loader 加载Policy #####
+
+**传入Store 并调用Store的DoReload来加载策略**
+
 ```internal/authzserver/server.go```
 
 *  在服务初始化的时候调用NewLoader初始化一个loader对象
-* loader对象Start()    会从iam-apiserver 获取 secrets and policies 数据 放到缓存中，以便Store对象去GetPolicy 的时候可以从缓存获取数据
+*  loader对象Start()    会从iam-apiserver 获取 secrets and policies 数据 放到缓存中，以便Store对象去GetPolicy 的时候可以从缓存获取数据
 
 ```go
 func (s *authzServer) initialize() error {
@@ -525,6 +601,8 @@ func (s *Store) Reload() error {
 	}
 
 	// reload policies
+  //这里的s.cli  就是Store里的StoreClient
+  //而StoreClient的实现就是 store.GetStoreInsOr(store.GetGRPCClientOrDie(s.rpcServer, s.clientCA))
 	policies, err := s.cli.GetPolicies()
 	if err != nil {
 		return errors.Wrap(err, "list policies failed")
@@ -546,78 +624,6 @@ func (s *authzServer) initialize() error {
 		......
   storeIns, err := store.GetStoreInsOr(store.GetGRPCClientOrDie(s.rpcServer, s.clientCA))
   .....
-}
-```
-
-```internal/authzserver/store/client.go ```
-
-获取StoreClient的实现，GRPCClient
-
-```go
-// GetGRPCClientOrDie return cache instance and panics on any error.
-func GetGRPCClientOrDie(address string, clientCA string) StoreClient {
-	if address != "" && clientCA != "" {
-		once.Do(func() {
-			var (
-				err   error
-				conn  *grpc.ClientConn
-				creds credentials.TransportCredentials
-			)
-
-			creds, err = credentials.NewClientTLSFromFile(clientCA, "")
-			if err != nil {
-				log.Panicf("credentials.NewClientTLSFromFile err: %v", err)
-			}
-
-			conn, err = grpc.Dial(address, grpc.WithBlock(), grpc.WithTransportCredentials(creds))
-			if err != nil {
-				log.Panicf("Connect to grpc server failed, error: %s", err.Error())
-			}
-
-			client = &GRPCClient{pb.NewCacheClient(conn)}
-			log.Infof("Connected to grpc server, address: %s", address)
-		})
-	}
-
-	return client
-}
-```
-
-```go
-//https://github.com/marmotedu/iam/blob/v1.0.4/internal/authzserver/store/client.go
-// GetPolicies returns all the authorization policies.
-func (c *GRPCClient) GetPolicies() (map[string][]*ladon.DefaultPolicy, error) {
-	pols := make(map[string][]*ladon.DefaultPolicy)
-
-	log.Info("Loading policies")
-
-	req := &pb.ListPoliciesRequest{
-		Offset: pointer.ToInt64(0),
-		Limit:  pointer.ToInt64(-1),
-	}
-
-	resp, err := c.cli.ListPolicies(context.Background(), req)
-	if err != nil {
-		return nil, errors.Wrap(err, "list policies failed")
-	}
-
-	log.Infof("Policies found (%d total)[username:name]:", len(resp.Items))
-
-	for _, v := range resp.Items {
-		log.Infof(" - %s:%s", v.Username, v.Name)
-
-		var policy ladon.DefaultPolicy
-
-		if err := json.Unmarshal([]byte(v.PolicyShadow), &policy); err != nil {
-			log.Warnf("failed to load policy for %s, error: %s", v.Name, err.Error())
-
-			continue
-		}
-
-		pols[v.Username] = append(pols[v.Username], &policy)
-	}
-
-	return pols, nil
 }
 ```
 

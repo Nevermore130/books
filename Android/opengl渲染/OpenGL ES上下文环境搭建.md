@@ -188,7 +188,11 @@ eglDestroyContext(display, context);
 
 
 
+####  Q&A ####
 
+1. GLSurfaceview本身实现了一套opengl上下文，如果再把它的surface传到native去关联ANAtiveWindow，并在native层创建上下文之后进行渲染，这两套上下文会不会冲突？
+
+**GLSurfaceview其实就是SurfaceView+OpenGL上下文管理**，不能将GLSurfaceVIew的Surface在传递到Native层去的，**我们这里讲解的是把SurfaceView或者TexureView的Surface传递到Native层去构建ANativeWindow。**
 
 
 
