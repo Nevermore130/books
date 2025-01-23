@@ -1,4 +1,4 @@
-Android系统下OpenG环境建立的原理图
+Android系统下OpenGL环境建立的原理图
 
 <img src="../images/image-20241111220330531.png" alt="image-20241111220330531" style="zoom:30%;" />
 
@@ -16,14 +16,6 @@ Android系统下OpenG环境建立的原理图
 
 ### OpenGL高效渲染的过程 ###
 
-当Camera采集到视频帧后，**它会在Camera硬件的空间中分配一块缓冲区来存放采集到的视频帧**（注意这块缓冲区不是在主内存中分配的）。然后**Camera会将这块这空间的地址或叫句柄保存到Surface的BufferQueue中**
-
-在App中我们会**创建一个SurfaceTexture作为该Surface中BufferQueue的消费者**，**当SurfaceTexture发现BufferQueue中有数据时，就会将其取出转成纹理交给GPU**。此时，在系统的底层会通过DMA技术将Camera中存放的数据拷贝到GPU中。
-
-**当我们通过OpenGL的Shader程序处理好GPU中的视频帧、图像之后，处理后的数据仍然保留在GPU中，而它的句柄则会输出到EGLSurface中，也就是Surface的BufferQueue中。**
-
-**当SurfaceFlinger的Layer从BufferQueue中取数据时，它取出的仍然是视频帧或图像的句柄，真正要处理的数据此时仍然在GPU中**。当SurfaceFlinger对多个Layer合并时，它会把具体的任务交给GPU，这样GPU就可以从它所管理的内存空间中直接取出数据进行合并工作了。
-
 <img src="../images/image-20241111221931894.png" alt="image-20241111221931894" style="zoom:50%;" />
 
 * EglGetDisplay， 获取EGLDisplay并加载OpenGLES库
@@ -36,6 +28,16 @@ Android系统下OpenG环境建立的原理图
 #### GLSurfaceView内部架构 ###
 
 <img src="../images/image-20241111222707341.png" alt="image-20241111222707341" style="zoom:50%;" />
+
+setRenderer函数
+
+```java
+public void setRenderer(Renderer renderer){
+  mRenderer = renderer;
+  mGLThread = new GLThread(mThisWeakRef)
+  mGLThread.start(); //启动后开始死循环
+}
+```
 
 GLThread中Run函数主要逻辑：
 
@@ -58,10 +60,29 @@ GLThread中Run函数主要逻辑：
     mEglContext = view.mEGLContextFactory.createContext(mEgl,mEglDisplay,mEglConfig);
     ```
 
-* mEglHelper.createSurface():
+* mEglHelper.createSurface():   创建EGLSurface
 
-<img src="../images/image-20241111223529887.png" alt="image-20241111223529887" style="zoom:50%;" />
+<img src="../images/image-20241111223529887.png" alt="image-20241111223529887" style="zoom:30%;" />
 
 * 回调onDrawFrame之后会调用mEglHelper.swap()函数来渲染到屏幕上（即调用eglSwapBuffers）
 
 onDrawFrame就是通过回调的openGL上下文来调用shader等程序处理GPU 图像数据，最后调用eglSwapBuffers 来渲染到屏幕
+
+#### RENDERMODE_CONTINUOUSY ####
+
+刷新频率由eglSwapBuffers来控制
+
+* 调用eflSwapBuffers后线程会阻塞，知道GPU下一帧通知过来的时候被唤醒继续执行上述的while循环
+
+#### RENDERMODE_WHEN_DIRTY 
+
+每当画面有变化时才更新
+
+更新画面需要主动调用requestRender()函数
+
+<img src="../images/image-20241221132812922.png" alt="image-20241221132812922" style="zoom:50%;" />
+
+* Thread 循环中还有一个小的while循环，小循环会执行readyToDraw()的判断
+* 如果DIRTY模式 且 mRequestRender标记为 false则会进入 GLThreadManager.wait() 等待
+* 直到主动调用requestRender函数后会唤起等待的thread,然后执行onDrawframe
+* 下次的readyToDraw就会true，然后又会将mRequestRender置为false

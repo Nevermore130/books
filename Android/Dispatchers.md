@@ -153,6 +153,7 @@ public abstract class CoroutineDispatcher :
     // 1
     public final override fun <T> interceptContinuation(continuation: Continuation<T>): Continuation<T> =
         DispatchedContinuation(this, continuation)
+      //this 表示CoroutineDispatcher即 Dispatchers.Default，continuation就是createCoroutineUnintercepted创建的block对象
 }
 ```
 
@@ -203,8 +204,8 @@ internal class DispatchedContinuation<in T>(
 
 * DispatchedContinuation 是实现了 Continuation 接口
 * 同时，它使用了“类委托”的语法，将接口的具体实现委托给了它的成员属性 continuation
-* 我们知道它的成员属性 dispatcher 对应的就是 Dispatcher.Default
-* 而成员属性 continuation 对应的则是 launch 当中传入的 SuspendLambda 实现类。
+* **我们知道它的成员属性 dispatcher 对应的就是 Dispatcher.Defaul**t
+* **而成员属性 continuation 对应的则是 launch 当中传入的 SuspendLambda 实现类。**
 
 
 

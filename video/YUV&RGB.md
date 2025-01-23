@@ -66,7 +66,7 @@ YUV 4:4:4 和 RGB 图像存储之后的大小是一样的。如果是 8bit 图�
 
 #### RGB 和 YUV 之间的转换 ####
 
-一般来说，采集到的原始图像、给显示器渲染的最终图像都是 RGB 图像，但是视频编码一般用的是 YUV 图像
+**一般来说，采集到的原始图像、给显示器渲染的最终图像都是 RGB 图像，但是视频编码一般用的是 YUV 图像**
 
 转换之前，先了解 Color Range 这个东西。对于一个 8bit 的 RGB 图像，它的每一个 R、G、B 分量的取值按理说就是 0~255 的。但是真的是这样的吗？其实不是的。这里就涉及到 Color Range 这个概念。**Color Range 分为两种，一种是 Full Range，一种是 Limited Range。Full Range 的 R、G、B 取值范围都是 0～255。而 Limited Range 的 R、G、B 取值范围是 16～235。**
 
@@ -78,7 +78,7 @@ BT709 和 BT601 定义了一个 RGB 和 YUV 互转的标准规范。只有我们
 
 ![](https://static001.geekbang.org/resource/image/19/72/19da3510c564b590f92cf969be01d872.jpeg?wh=1920x1080)
 
-如果是系统采集出来给到用户的图像就是 YUV 的话，你也需要获取这个 YUV 的存储格式、转换标准和 Color Range。这样才能保证正确地处理 YUV 和 RGB 之间的转换。
+**如果是系统采集出来给到用户的图像就是 YUV 的话，你也需要获取这个 YUV 的存储格式、转换标准和 Color Range。这样才能保证正确地处理 YUV 和 RGB 之间的转换。**
 
 
 

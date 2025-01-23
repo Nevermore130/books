@@ -67,7 +67,7 @@ Continuation 主要有两种用法:
 1. 一种是在实现挂起函数的时候，用于传递挂起函数的执行结果
 2. 另一种是在调用挂起函数的时候，以匿名内部类的方式，用于接收挂起函数的执行结果
 
-tartCoroutine() 的作用其实就是创建一个新的协程，并且执行 block 当中的逻辑，**等协程执行完毕以后，将结果返回给 Continuation 对象**
+startCoroutine() 的作用其实就是创建一个新的协程，并且执行 block 当中的逻辑，**等协程执行完毕以后，将结果返回给 Continuation 对象**
 
 ```kotlin
 代码段4
@@ -364,6 +364,191 @@ createCoroutineUnintercepted(completion).intercepted().resume(Unit)
 ```
 
 这里的`` resume(Unit)``，作用其实就相当于启动了协程
+
+### launch 是如何启动协程的 ###
+
+```go
+// 代码段15
+
+fun main() {
+    testLaunch()
+    Thread.sleep(2000L)
+}
+
+private fun testLaunch() {
+    val scope = CoroutineScope(Job())
+    scope.launch {
+        println("Hello!")
+        delay(1000L)
+        println("World!")
+    }
+}
+
+/*
+输出结果：
+Hello!
+World!
+*/
+```
+
+还是通过反编译，来看看它对应的 Java 代码长什么样
+
+```go
+// 代码段16
+
+public final class LaunchUnderTheHoodKt {
+  public static final void main() {
+    testLaunch();
+    Thread.sleep(2000L);
+  }
+
+  private static final void testLaunch() {
+    CoroutineScope scope = CoroutineScopeKt.CoroutineScope((CoroutineContext)JobKt.Job$default(null, 1, null));
+    BuildersKt.launch$default(scope, null, null, new LaunchUnderTheHoodKt$testLaunch$1(null), 3, null);
+  }
+
+  static final class LaunchUnderTheHoodKt$testLaunch$1 extends SuspendLambda implements Function2<CoroutineScope, Continuation<? super Unit>, Object> {
+    int label;
+
+    LaunchUnderTheHoodKt$testLaunch$1(Continuation $completion) {
+      super(2, $completion);
+    }
+
+    @Nullable
+    public final Object invokeSuspend(@NotNull Object $result) {
+      Object object = IntrinsicsKt.getCOROUTINE_SUSPENDED();
+      switch (this.label) {
+        case 0:
+          ResultKt.throwOnFailure(SYNTHETIC_LOCAL_VARIABLE_1);
+          System.out
+            .println("Hello!");
+          this.label = 1;
+          if (DelayKt.delay(1000L, (Continuation)this) == object)
+            return object; 
+          DelayKt.delay(1000L, (Continuation)this);
+          System.out
+            .println("World!");
+          return Unit.INSTANCE;
+        case 1:
+          ResultKt.throwOnFailure(SYNTHETIC_LOCAL_VARIABLE_1);
+          System.out.println("World!");
+          return Unit.INSTANCE;
+      } 
+      throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+    }
+
+    @NotNull
+    public final Continuation<Unit> create(@Nullable Object value, @NotNull Continuation<? super LaunchUnderTheHoodKt$testLaunch$1> $completion) {
+      return (Continuation<Unit>)new LaunchUnderTheHoodKt$testLaunch$1($completion);
+    }
+
+    @Nullable
+    public final Object invoke(@NotNull CoroutineScope p1, @Nullable Continuation<?> p2) {
+      return ((LaunchUnderTheHoodKt$testLaunch$1)create(p1, p2)).invokeSuspend(Unit.INSTANCE);
+    }
+  }
+}
+```
+
+* “LaunchUnderTheHoodKt$testLaunch$1”这个类，它其实对应的就是我们 launch 当中的 Lambda。
+
+为了让它们之间的对应关系更加明显，可以换一种写法：
+
+```go
+// 代码段17
+
+private fun testLaunch() {
+    val scope = CoroutineScope(Job())
+    val block: suspend CoroutineScope.() -> Unit = {
+        println("Hello!")
+        delay(1000L)
+        println("World!")
+    }
+    scope.launch(block = block)
+}
+```
+
+接下来，我们来看看 launch{} 的源代码
+
+```kotlin
+public fun CoroutineScope.launch(
+    context: CoroutineContext = EmptyCoroutineContext,
+    start: CoroutineStart = CoroutineStart.DEFAULT,
+    block: suspend CoroutineScope.() -> Unit
+): Job {
+    // 1
+    val newContext = newCoroutineContext(context)
+    // 2
+    val coroutine = if (start.isLazy)
+        LazyStandaloneCoroutine(newContext, block) else
+        StandaloneCoroutine(newContext, active = true)
+    // 3
+    coroutine.start(start, coroutine, block)
+    return coroutine
+}
+```
+
+* 注释 1，launch 会根据传入的 CoroutineContext 创建出新的 Context。
+* 注释 2，launch 会根据传入的启动模式来创建对应的协程对象。这里有两种，一种是标准的，一种是懒加载的。
+* 注释 3，尝试启动协程。
+
+coroutine.start() 这个方法，会进入 AbstractCoroutine 这个抽象类
+
+```kotlin
+public abstract class AbstractCoroutine<in T>(
+    parentContext: CoroutineContext,
+    initParentJob: Boolean,
+    active: Boolean
+) : JobSupport(active), Job, Continuation<T>, CoroutineScope {
+
+    // 省略
+
+    public fun <R> start(start: CoroutineStart, receiver: R, block: suspend R.() -> T) {
+        start(block, receiver, this)
+    }
+}
+```
+
+```kotlin
+public enum class CoroutineStart {
+    public operator fun <T> invoke(block: suspend () -> T, completion: Continuation<T>): Unit =
+        when (this) {
+            DEFAULT -> block.startCoroutineCancellable(completion)
+            ATOMIC -> block.startCoroutine(completion)
+            UNDISPATCHED -> block.startCoroutineUndispatched(completion)
+            LAZY -> Unit // will start lazily
+        }
+}
+```
+
+在这个 invoke() 方法当中，它会根据 launch 传入的启动模式，以不同的方式启动协程。当我们的启动模式是 ATOMIC 的时候，就会调用 ```block.startCoroutine(completion)。```
+
+而这个，其实就是研究过的``` startCoroutine() ```这个协程基础 API。
+
+由于我们没有传入特定的启动模式，因此，这里会执行默认的模式，也就是调用“startCoroutineCancellable(completion)”这个方法。
+
+```kotlin
+public fun <T> (suspend () -> T).startCoroutineCancellable(completion: Continuation<T>): Unit = runSafely(completion) {
+    // 1
+    createCoroutineUnintercepted(completion).intercepted().resumeCancellableWith(Result.success(Unit))
+}
+
+public actual fun <T> (suspend () -> T).createCoroutineUnintercepted(
+    completion: Continuation<T>
+): Continuation<Unit> {
+    val probeCompletion = probeCoroutineCreated(completion)
+
+    return if (this is BaseContinuationImpl)
+        // 2
+        create(probeCompletion)
+    else
+        createCoroutineFromSuspendFunction(probeCompletion) {
+            (this as Function1<Continuation<T>, Any?>).invoke(it)
+        }
+}
+```
+
+
 
 
 

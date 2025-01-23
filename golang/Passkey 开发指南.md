@@ -8,6 +8,26 @@ WebAuthn：WebAuthn是Web Authentication API的缩写，它主要就是支持Pas
 
 使用Passkey登录时，**网站存储了用户的公钥，而用户的私钥存放在本地设备（电脑或手机）中，通过给服务器发送私钥签名，服务器验证签名无误，即登录成功**
 
+1. 检测当前设备是否支持 Passkey，是则继续
+
+2. 点击给账号添加 Passkey，浏览器向网站服务器发送请求，**获取创建 Passkey 所需要的 options (网站信息, 用户名，网站地址等)**
+
+3. 浏览器调用 [Web Authentication API](https://link.juejin.cn?target=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FAPI%2FWeb_Authentication_API) 也就是 `navigator.credentials.create()` 方法并传入上一步的 options 参数来要求用户进行身份验证以创建密钥，通过设备验证(比如FaceID)后生成一对私钥和公钥，随后会将 **私钥，用户名以及网站地址作为 Passkey 存储在设备中**(可以是手机芯片,U盘)，**并将公钥发送到对应网站**。网站服务端收到公钥和用户名，存入数据库中，Passkey 凭据创建成功。
+
+4. 当下次您使用 Passkey 登录该服务时，浏览器向服务器发起请求，获取凭据认证所需的 options 信息，浏览器调用 `navigator.credentials.get()` 方法，传入上一步获取的 options ，并将**使用与您的帐户绑定的公钥**为您的设备**创建随机质询(challenge)**。(即用服务端保存的公钥来加密challenge)
+
+5. 此时，浏览器调用操作系统接口弹出对话框要求用户选择进行身份验证的密钥并进行身份验证，随后利用存储在您设备上的私钥解决该 challenge，验证身份成功。
+
+   
+
+
+
+
+
+
+
+
+
 ### 创建Key ###
 
 通过调用`navigator.credentials.create()`创建一个Passkey
