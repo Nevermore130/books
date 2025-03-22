@@ -1,3 +1,41 @@
+### Go 编译环境安装和配置
+
+```sh
+$ wget -P /tmp/ https://go.dev/dl/go1.19.4.linux-amd64.tar.gz
+### 解压并安装。
+$ mkdir -p $HOME/go
+$ tar -xvzf /tmp/go1.19.4.linux-amd64.tar.gz -C $HOME/go
+$ mv $HOME/go/go $HOME/go/go1.19.4
+```
+
+配置 `$HOME/.bashrc` 文件
+
+```sh
+$ tee -a $HOME/.bashrc <<'EOF'
+# Go envs
+export GOVERSION=go1.19.4 # Go 版本设置
+export GO_INSTALL_DIR=$HOME/go # Go 安装目录
+export GOROOT=$GO_INSTALL_DIR/$GOVERSION # GOROOT 设置
+export GOPATH=$WORKSPACE/golang # GOPATH 设置
+export PATH=$GOROOT/bin:$GOPATH/bin:$PATH # 将 Go 语言自带的和通过 go install 安装的二进制文件加入到 PATH 路径中
+export GO111MODULE="on" # 开启 Go moudles 特性
+export GOPROXY=https://goproxy.cn,direct # 安装 Go 模块时，代理服务器设置
+export GOPRIVATE=
+export GOSUMDB=off # 关闭校验 Go 依赖包的哈希值
+EOF
+
+```
+
+
+
+
+
+
+
+
+
+
+
 Go 程序的构建过程就是确定包版本、编译包以及将编译后得到的目标文件链接在一起的过程。
 
 Go 语言的构建模式历经了三个迭代和演化过程，分别是最初期的 GOPATH、1.5 版本的 Vendor 机制，以及现在的 Go Module
